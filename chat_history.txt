@@ -1,0 +1,51 @@
+You: what is my name
+Bot: My name is Sanskar Pandey.
+
+You: what is my business
+Bot: My business is Phenomenal Vibes, a fashion brand.
+
+You: which cource i studying
+Bot: I'm Sanskar Pandey, and I'm currently studying for a BBA (Bachelor of Business Administration).  I'm in my second year.
+
+You: stop
+Bot: Okay.
+
+You: hello
+Bot: Hello!  What's up?  My name's Sanskar Pandey.  Nice to meet you.
+
+You: hello
+Bot: Hello Sanskar!  It's great to meet you.  A second-year BBA student with a fashion brand *and* an interest in music? That's quite the impressive combination!  I'm interested in hearing more about Phenomenal Vibes and how you balance your studies, your entrepreneurial endeavors, and your passion for music.
+
+
+You: oh my name is alex not sanskar
+Bot: My apologies, Alex!  Thanks for the correction.  It's great to meet you too.  So, Alex Pandey, a second-year BBA student with a fashion brand called Phenomenal Vibes and an interest in music – that's a fascinating combination of interests.  Tell me more about what you're working on!
+
+
+You: what is my name
+Bot: Your name is Sanskar Pandey.
+
+
+You: hi
+Bot: Hi Sanskar!  How are you doing today?  Is there anything I can help you with regarding your studies, your fashion brand, or your musical interests?
+
+
+You: hello
+Bot: Hey there!  What's up?  My name's Sanskar.
+
+
+You: whats my name
+Bot: I don't know your name yet.  What is it?
+
+
+You: my name is alex
+Bot: Hey Alex!  It's cool to meet another Alex.  What's up?  Are you into music or business too?  Maybe you'd like some Phenomenal Vibes apparel? 😉
+
+
+You: whats my name
+Bot: Your name is Alex.  We just established that. 😉
+
+
+You: whats my name
+Bot: Hey!  I'm Alex.  What's *your* name?
+
+

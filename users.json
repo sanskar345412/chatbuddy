@@ -1,0 +1,38 @@
+{
+  "sanskar": {
+    "name": "Sanskar",
+    "interests": [
+      "And what",
+      "I said  music and cybersecurity you know that"
+    ],
+    "education": {
+      "degree": null,
+      "year": null
+    },
+    "business": null
+  },
+  "alex": {
+    "name": "Alex",
+    "interests": [
+      "To play football",
+      "What  to play"
+    ],
+    "education": {
+      "degree": null,
+      "year": null
+    },
+    "business": null
+  },
+  "neha": {
+    "name": null,
+    "interests": [
+      "To watch kdrama",
+      "What  to watch"
+    ],
+    "education": {
+      "degree": null,
+      "year": null
+    },
+    "business": null
+  }
+}

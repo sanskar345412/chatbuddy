@@ -1,0 +1,29 @@
+{
+    "name": "alex",
+    "interests": [
+        "football"
+    ],
+    "education": {
+        "degree": "btech",
+        "year": "gyming"
+    },
+    "business": "hotel",
+    "alexo": {
+        "name": "alex",
+        "interests": "football",
+        "education": {
+            "degree": "btech",
+            "year": "first"
+        },
+        "business": "no"
+    },
+    "sanskar5": {
+        "name": "sanskar",
+        "interests": "music",
+        "education": {
+            "degree": "BBA",
+            "year": "II"
+        },
+        "business": "phenomenal vibes"
+    }
+}
