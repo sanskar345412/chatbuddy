@@ -2,20 +2,26 @@ import os
 import json
 import streamlit as st
 from cryptography.fernet import Fernet
+from dotenv import load_dotenv
 import google.generativeai as genai
 
-# --- Configure Gemini AI ---
-API_KEY = st.secrets["GOOGLE_API_KEY"]
-genai.configure(api_key=API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+# Load environment variables
+load_dotenv()
+API_KEY = st.secrets["GOOGLE_API_KEY"] if "GOOGLE_API_KEY" in st.secrets else os.getenv("GOOGLE_API_KEY")
+if not API_KEY:
+    st.error("❌ API key not found. Set GOOGLE_API_KEY in secrets or .env.")
+    st.stop()
 
-# --- Paths ---
+genai.configure(api_key=API_KEY)
+model = genai.GenerativeModel("gemini-1.5-flash")
+
+# File paths
 DATA_DIR = "user_data"
 KEY_FILE = os.path.join(DATA_DIR, "secret.key")
-ENC_FILE = os.path.join(DATA_DIR, "chat_data.enc")
+ENCRYPTED_FILE = os.path.join(DATA_DIR, "chat_data.enc")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# --- Encryption Handling ---
+# Functions for encryption
 def load_key():
     if not os.path.exists(KEY_FILE):
         key = Fernet.generate_key()
@@ -26,99 +32,91 @@ def load_key():
             key = f.read()
     return Fernet(key)
 
-def save_data(all_data, fernet):
-    encrypted = fernet.encrypt(json.dumps(all_data).encode('utf-8'))
-    with open(ENC_FILE, 'wb') as f:
-        f.write(encrypted)
+fernet = load_key()
 
-def load_data(fernet):
-    if not os.path.exists(ENC_FILE):
+def load_all_data():
+    if not os.path.exists(ENCRYPTED_FILE):
         return {}
     try:
-        with open(ENC_FILE, 'rb') as f:
-            decrypted = fernet.decrypt(f.read()).decode('utf-8')
-            return json.loads(decrypted)
+        with open(ENCRYPTED_FILE, 'rb') as f:
+            data = f.read()
+            return json.loads(fernet.decrypt(data).decode('utf-8'))
     except:
         return {}
 
-# --- Generate AI Response ---
-def generate_response(user_input, context=[]):
-    try:
-        convo = ["You are a helpful assistant. Be friendly and do not repeat known user info unless asked."]
-        for chat in context:
-            convo.append(f"User: {chat['user']}")
-            convo.append(f"Bot: {chat['bot']}")
-        convo.append(f"User: {user_input}")
-        response = model.generate_content("\n".join(convo))
-        return response.text.strip()
-    except Exception as e:
-        return f"Sorry, something went wrong: {e}"
+def save_all_data(all_data):
+    encrypted = fernet.encrypt(json.dumps(all_data).encode('utf-8'))
+    with open(ENCRYPTED_FILE, 'wb') as f:
+        f.write(encrypted)
 
-# --- Streamlit App Start ---
-st.set_page_config(page_title="Gemini AI Chatbot", layout="centered")
-st.title("💬 Gemini AI Chatbot")
+# UI setup
+st.set_page_config(page_title="ChatBuddy", page_icon="💬", layout="centered")
+st.title("💬 ChatBuddy")
+st.markdown("Your smart assistant with memory and personality.")
 
-fernet = load_key()
-all_user_data = load_data(fernet)
+# User login
+if "username" not in st.session_state:
+    username = st.text_input("Enter your username to begin:", key="login")
+    if username:
+        st.session_state.username = username
+        st.rerun()
 
-# --- User Login ---
-username = st.text_input("🔑 Enter your username:")
-if not username:
-    st.stop()
+# Load or create user data
+all_data = load_all_data()
+username = st.session_state.username
+user_data = all_data.get(username, {})
 
-if username not in all_user_data:
-    st.subheader("👤 New User Setup")
-    name = st.text_input("Your full name:")
-    education = st.text_input("Education (e.g., BBA 2nd Year or 'No'):")
-    business = st.text_input("Do you run a business? (Name or 'No'):")
-    interests = st.text_input("Your interests:")
-
-    if st.button("✅ Register"):
-        all_user_data[username] = {
-            "name": name,
-            "education": education if "no" not in education.lower() else None,
-            "business": business if "no" not in business.lower() else None,
-            "interests": interests
-        }
-        save_data(all_user_data, fernet)
-        st.success("User registered! You can now chat.")
-        st.experimental_rerun()
-
-user_data = all_user_data.get(username)
 if not user_data:
-    st.warning("❗ Please register first.")
-    st.stop()
+    st.subheader("👋 Welcome! Let's get to know you.")
+    name = st.text_input("What's your full name?")
+    edu = st.text_input("Are you a student? If yes, mention your course and year. Else type 'No'")
+    biz = st.text_input("Do you have a business? If yes, mention the name. Else type 'No'")
+    interests = st.text_input("What are your interests?")
+    
+    if st.button("Save & Start Chat"):
+        user_data['name'] = name
+        if "no" not in edu.lower(): user_data['education'] = edu
+        if "no" not in biz.lower(): user_data['business'] = biz
+        user_data['interests'] = interests
+        all_data[username] = user_data
+        save_all_data(all_data)
+        st.success("✅ Details saved!")
+        st.rerun()
 
-# --- Chat History ---
-if "chat_history" not in st.session_state:
+elif "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# --- Chat Input Form ---
-with st.form("chat_form"):
-    user_input = st.text_input("You:", placeholder="Type your message here...")
-    submitted = st.form_submit_button("Send")
+# Chat interface
+if user_data and "chat_history" in st.session_state:
+    st.markdown("---")
+    st.subheader(f"Hi {user_data.get('name', username)} 👋")
 
-if submitted and user_input:
-    intro = f"This user is named {user_data['name']}"
-    if user_data.get("education"):
-        intro += f", studying {user_data['education']}"
-    if user_data.get("business"):
-        intro += f", runs a business called {user_data['business']}"
-    if user_data.get("interests"):
-        intro += f", and is interested in {user_data['interests']}"
-    prompt = intro + f"\nUser asked: {user_input}"
+    for entry in st.session_state.chat_history:
+        with st.chat_message("user"):
+            st.markdown(entry["user"])
+        with st.chat_message("assistant"):
+            st.markdown(entry["bot"])
 
-    response = generate_response(prompt, st.session_state.chat_history)
-    st.session_state.chat_history.append({"user": user_input, "bot": response})
+    user_input = st.chat_input("Type your message")
+    if user_input:
+        intro = f"This user is named {user_data.get('name', 'Anonymous')}"
+        if 'education' in user_data:
+            intro += f", studying {user_data['education']}"
+        if 'business' in user_data:
+            intro += f", runs a business called {user_data['business']}"
+        if 'interests' in user_data:
+            intro += f", and is interested in {user_data['interests']}"
+        full_prompt = intro + f"\nUser asked: {user_input}"
 
-# --- Chat Display ---
-st.subheader("📜 Chat History")
-for chat in st.session_state.chat_history:
-    st.markdown(f"**You:** {chat['user']}")
-    st.markdown(f"**Bot:** {chat['bot']}")
+        try:
+            response = model.generate_content(full_prompt)
+            reply = response.text.strip()
+        except Exception as e:
+            reply = "❌ Something went wrong. Please try again later."
 
-# --- Reset Option ---
-if st.button("🔁 Reset Chat"):
-    st.session_state.chat_history = []
-    st.experimental_rerun()
+        st.session_state.chat_history.append({"user": user_input, "bot": reply})
+        st.rerun()
+
+
+
 
