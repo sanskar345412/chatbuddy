@@ -1,16 +1,15 @@
 import os
 import json
 import streamlit as st
-from cryptography.fernet import Fernet
 from dotenv import load_dotenv
+from cryptography.fernet import Fernet
 import google.generativeai as genai
 
-# Load environment variables
+# Load API key from .env
 load_dotenv()
-API_KEY = os.getenv("GOOGLE_API_KEY") or st.secrets.get("GOOGLE_API_KEY")
-
+API_KEY = os.getenv("GOOGLE_API_KEY")
 if not API_KEY:
-    st.error("❌ API key not found. Please set it in .env or secrets.toml.")
+    st.error("❌ API key not found. Please check your .env file.")
     st.stop()
 
 genai.configure(api_key=API_KEY)
@@ -18,9 +17,9 @@ model = genai.GenerativeModel("gemini-1.5-flash")
 
 # File paths
 DATA_DIR = "user_data"
+os.makedirs(DATA_DIR, exist_ok=True)
 ENCRYPTED_FILE = os.path.join(DATA_DIR, "chat_data.enc")
 KEY_FILE = os.path.join(DATA_DIR, "secret.key")
-os.makedirs(DATA_DIR, exist_ok=True)
 
 # Load or generate Fernet key
 def load_key():
@@ -35,8 +34,8 @@ def load_key():
 
 fernet = load_key()
 
-# Load all user data from encrypted file
-def load_all_data():
+# Load encrypted user data
+def load_data():
     if not os.path.exists(ENCRYPTED_FILE):
         return {}
     try:
@@ -45,113 +44,101 @@ def load_all_data():
     except Exception:
         return {}
 
-# Save all user data
-def save_all_data(data):
+# Save encrypted user data
+def save_data(data):
     with open(ENCRYPTED_FILE, "wb") as f:
         f.write(fernet.encrypt(json.dumps(data).encode("utf-8")))
 
-# Ask user details
-def ask_initial_details():
-    st.markdown("### Let's get to know you better.")
-    name = st.text_input("👤 What's your full name?")
-    education = st.text_input("🎓 Are you a student? Mention your course & year, or type 'No'.")
-    business = st.text_input("💼 Do you have a business? If yes, mention the name, else type 'No'.")
-    interests = st.text_input("🎯 What are your interests?")
-    
-    details = {
-        "name": name,
-        "interests": interests
-    }
-    if education.lower() != "no":
+# Prompt user for initial details
+def ask_user_details():
+    details = {}
+    details["name"] = st.text_input("👤 What's your full name?")
+    education = st.text_input("🎓 Are you a student? Mention course/year or say 'No'")
+    if "no" not in education.lower():
         details["education"] = education
-    if business.lower() != "no":
+    business = st.text_input("💼 Do you have a business? Mention name or say 'No'")
+    if "no" not in business.lower():
         details["business"] = business
+    details["interests"] = st.text_input("🎯 What are your interests?")
     return details
 
-# Generate response with user context
-def generate_response(user_input, user_data, chat_history):
+# Generate AI response
+def generate_response(user_input, context, user_data):
     try:
-        prompt = f"This user is named {user_data.get('name', 'Anonymous')}"
+        intro = f"This user is named {user_data.get('name', 'Anonymous')}"
         if "education" in user_data:
-            prompt += f", studying {user_data['education']}"
+            intro += f", studying {user_data['education']}"
         if "business" in user_data:
-            prompt += f", runs a business called {user_data['business']}"
+            intro += f", runs a business called {user_data['business']}"
         if "interests" in user_data:
-            prompt += f", and is interested in {user_data['interests']}"
+            intro += f", and is interested in {user_data['interests']}"
+        full_prompt = intro + f"\nUser asked: {user_input}"
 
-        prompt += f"\nUser asked: {user_input}"
-
-        convo = [
-            "You are a helpful assistant. Answer clearly and concisely. Avoid repeating known facts unless asked."
-        ]
-        for c in chat_history:
+        convo = ["You are a helpful assistant. Be friendly and avoid repeating user details unless asked."]
+        for c in context:
             convo.append(f"User: {c['user']}")
             convo.append(f"Bot: {c['bot']}")
-        convo.append(f"User: {user_input}")
-
+        convo.append(f"User: {full_prompt}")
         response = model.generate_content("\n".join(convo))
         return response.text.strip()
     except Exception as e:
-        return "⚠️ Sorry, something went wrong."
+        return f"⚠️ Error: {e}"
 
-# Title
-st.set_page_config(page_title="ChatBuddy 🤖", page_icon="🤖")
-st.title("ChatBuddy 🤖")
+# ---- Streamlit UI ----
+st.set_page_config(page_title="ChatBuddy", layout="centered")
+st.title("💬 ChatBuddy")
+st.markdown("A personalized AI chatbot with memory.")
 
 # Session state setup
 if "username" not in st.session_state:
-    st.session_state.username = None
-
-if not st.session_state.username:
-    st.session_state.username = st.text_input("Enter your username to begin:")
-    st.stop()
-
-# Load or create user data
-all_user_data = load_all_data()
-user_data = all_user_data.get(st.session_state.username)
-
-if not user_data:
-    user_data = ask_initial_details()
-    all_user_data[st.session_state.username] = user_data
-    save_all_data(all_user_data)
-    st.success("✅ Profile saved! Let's chat.")
-
-# Load or initialize chat history
+    st.session_state.username = ""
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
+if "user_data" not in st.session_state:
+    st.session_state.user_data = {}
+if "all_data" not in st.session_state:
+    st.session_state.all_data = load_data()
 
-# Chat interface
-st.markdown("---")
-user_input = st.text_input("💬 Type your message here:", key="chat_input")
-if st.button("Send", use_container_width=True) and user_input:
-    reply = generate_response(user_input, user_data, st.session_state.chat_history)
-    st.session_state.chat_history.append({"user": user_input, "bot": reply})
+# Username login screen
+if not st.session_state.username:
+    username_input = st.text_input("🔐 Enter your username to begin:")
+    if username_input:
+        st.session_state.username = username_input.strip()
+        all_data = st.session_state.all_data
+        if username_input not in all_data:
+            st.session_state.user_data = ask_user_details()
+            all_data[username_input] = st.session_state.user_data
+            save_data(all_data)
+        else:
+            st.session_state.user_data = all_data[username_input]
+        st.rerun()
 
-# Display chat
-for chat in st.session_state.chat_history:
-    st.markdown(f"👤 **You:** {chat['user']}")
-    st.markdown(f"🤖 **ChatBuddy:** {chat['bot']}")
+# Main chat interface
+else:
+    st.success(f"👋 Welcome back, {st.session_state.user_data.get('name', st.session_state.username)}!")
 
-# Option to reset or update
-st.markdown("---")
-col1, col2 = st.columns(2)
-if col1.button("🔁 Reset Info"):
-    del all_user_data[st.session_state.username]
-    save_all_data(all_user_data)
+    for chat in st.session_state.chat_history:
+        with st.chat_message("user"):
+            st.markdown(chat["user"])
+        with st.chat_message("assistant"):
+            st.markdown(chat["bot"])
+
+    user_input = st.chat_input("Type your message...")
+    if user_input:
+        with st.chat_message("user"):
+            st.markdown(user_input)
+        response = generate_response(user_input, st.session_state.chat_history, st.session_state.user_data)
+        with st.chat_message("assistant"):
+            st.markdown(response)
+        st.session_state.chat_history.append({"user": user_input, "bot": response})
+
+# Optional: Clear chat button
+if st.button("🔄 Reset Chat"):
     st.session_state.chat_history = []
-    st.session_state.username = None
-    st.experimental_rerun()
+    st.rerun()
 
-if col2.button("✏️ Update Info"):
-    with st.form("update_form"):
-        field = st.selectbox("Which field do you want to update?", ["name", "education", "business", "interests"])
-        new_value = st.text_input(f"New value for {field}:")
-        submitted = st.form_submit_button("Update")
-        if submitted and new_value:
-            user_data[field] = new_value
-            all_user_data[st.session_state.username] = user_data
-            save_all_data(all_user_data)
-            st.success(f"✅ Updated {field}")
+
+
 
 
 
