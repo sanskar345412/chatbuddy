@@ -1,3 +1,4 @@
+# streamlit_app.py
 import os
 import json
 import streamlit as st
@@ -13,7 +14,21 @@ if not API_KEY:
     st.stop()
 
 genai.configure(api_key=API_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+
+def get_model():
+    candidates = ["models/gemini-1.5-flash", "gemini-1.5-flash"]
+    last_exc = None
+    for name in candidates:
+        try:
+            return genai.GenerativeModel(name)
+        except Exception as e:
+            last_exc = e
+            continue
+    st.error(f"Model init failed. Tried {candidates}. Last error: {last_exc}")
+    st.stop()
+
+# Initialize model
+model = get_model()
 
 # File paths
 DATA_DIR = "user_data"
@@ -80,7 +95,7 @@ def generate_response(user_input, context, user_data):
             convo.append(f"Bot: {c['bot']}")
         convo.append(f"User: {full_prompt}")
         response = model.generate_content("\n".join(convo))
-        return response.text.strip()
+        return getattr(response, "text", str(response)).strip()
     except Exception as e:
         return f"⚠️ Error: {e}"
 
@@ -136,11 +151,3 @@ else:
 if st.button("🔄 Reset Chat"):
     st.session_state.chat_history = []
     st.rerun()
-
-
-
-
-
-
-
-

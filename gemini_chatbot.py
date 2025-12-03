@@ -1,3 +1,4 @@
+# gemini_chatbot.py
 import os
 import json
 import time
@@ -11,10 +12,30 @@ import google.generativeai as genai
 load_dotenv()
 API_KEY = os.getenv("GOOGLE_API_KEY")
 if not API_KEY:
-    raise ValueError("\u274C API key not found. Set GOOGLE_API_KEY in .env or system environment.")
+    raise ValueError("❌ API key not found. Set GOOGLE_API_KEY in .env or system environment.")
 
 genai.configure(api_key=API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+
+def get_model():
+    """
+    Try model names that different API versions/deployments expect.
+    First try the 'models/...' prefix (some deployments require it),
+    then fall back to the plain model id (used by newer SDKs).
+    """
+    candidates = ["models/gemini-1.5-flash", "gemini-1.5-flash"]
+    last_exception = None
+    for name in candidates:
+        try:
+            m = genai.GenerativeModel(name)
+            return m
+        except Exception as e:
+            last_exception = e
+            # keep trying the next candidate
+    # If none succeeded we raise a helpful error so you see what's wrong on startup
+    raise RuntimeError(f"No compatible Gemini model found. Tried {candidates}. Last error: {last_exception}")
+
+# Initialize model (will try both formats)
+model = get_model()
 
 # File paths
 DATA_DIR = "user_data"
@@ -28,13 +49,13 @@ speaker = pyttsx3.init()
 speaker.setProperty('rate', 160)
 
 def speak(text):
-    print(f"\U0001F916 Bot: {text}")
+    print(f"🤖 Bot: {text}")
     speaker.say(text)
     speaker.runAndWait()
 
 def listen():
     with sr.Microphone() as source:
-        print("\n\U0001F3A4 Listening...")
+        print("\n🎤 Listening...")
         audio = recognizer.listen(source)
     try:
         return recognizer.recognize_google(audio)
@@ -51,9 +72,11 @@ def generate_response(user_input, context=[]):
         convo.append(f"User: {user_input}")
 
         response = model.generate_content("\n".join(convo))
-        return response.text.strip()
+        # Some SDK returns complex object; keep accessing .text like before
+        return getattr(response, "text", str(response)).strip()
     except Exception as e:
-        return "Sorry, something went wrong."
+        # return a friendly message — enough for UI but log exception if needed
+        return f"Sorry, something went wrong while generating response: {e}"
 
 def load_key():
     if not os.path.exists(KEY_FILE):
@@ -116,7 +139,7 @@ if not user_data:
     save_data(all_user_data, fernet)
 
 chat_history = []
-speak("\U0001F916 I'm ready to chat. Type 'exit' to quit, '/reset' to clear, or '/update' to change your info.")
+speak("🤖 I'm ready to chat. Type 'exit' to quit, '/reset' to clear, or '/update' to change your info.")
 
 while True:
     try:
@@ -164,5 +187,3 @@ while True:
 
     except Exception as e:
         speak(f"Error: {e}")
-
-

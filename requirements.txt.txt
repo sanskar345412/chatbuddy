@@ -1,0 +1,8 @@
+streamlit
+cryptography
+python-dotenv
+google-generativeai>=0.7.0
+protobuf>=4.25.1
+flask
+SpeechRecognition
+pyttsx3
